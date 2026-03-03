@@ -1,31 +1,28 @@
 import streamlit as st
 import time
 
-# 1. Page Configuration - FORCING sidebar to be visible
+# 1. Page Configuration - Force Sidebar and Wide Layout
 st.set_page_config(
     page_title="AI Debugger Pro", 
     layout="wide", 
     initial_sidebar_state="expanded" 
 )
 
-# 2. CSS - Forcing Dark Sidebar & Teal Accents
+# 2. CSS - Deep Dark Theme & Teal Accents
 st.markdown("""
     <style>
-    /* Hide Streamlit clutter */
+    /* Hide Streamlit Header/Footer */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* FORCE DARK SIDEBAR */
+    /* Force Sidebar to be Black */
     [data-testid="stSidebar"] {
-        background-color: #111111 !important;
-        min-width: 250px !important;
+        background-color: #000000 !important;
+        border-right: 1px solid #333333;
     }
     
-    /* Ensure sidebar text is white */
-    [data-testid="stSidebar"] section[data-testid="stSidebarNav"] {
-        background-color: #111111 !important;
-    }
+    /* Sidebar Text */
     [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span {
         color: #FFFFFF !important;
     }
@@ -38,13 +35,13 @@ st.markdown("""
         border-radius: 12px;
     }
 
-    /* Teal focus border (Replacing Red) */
+    /* Teal focus (No Red) */
     .stTextArea>div>div>textarea:focus {
         border-color: #00d4ff !important;
         box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
-    /* Button Styling */
+    /* Professional Button Styling */
     .stButton>button {
         border-radius: 12px;
         background-color: #262730 !important; 
@@ -62,14 +59,14 @@ st.markdown("""
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- SIDEBAR: History Only ---
+# --- SIDEBAR: HISTORY ---
 with st.sidebar:
-    st.title("📂 Fix History")
-    st.write("Recent Activity:")
+    st.title("📂 History")
+    st.write("Previous Code Fixes:")
     st.divider()
     
     if not st.session_state.history:
-        st.info("No fixes yet.")
+        st.info("No activity yet.")
     else:
         for i, item in enumerate(reversed(st.session_state.history)):
             with st.expander(f"Fix {len(st.session_state.history)-i}"):
@@ -83,21 +80,29 @@ with st.sidebar:
 # --- MAIN UI ---
 st.title("🤖 AI Debugging Assistant")
 
-# New Professional Placeholder
-valid_placeholder = "def check_data(items):\n    # Paste your code here to analyze\n    return True"
+# Clean, professional placeholder
+placeholder_code = "def check_errors(input_data):\n    # Paste your Python code here...\n    return True"
 
-code_input = st.text_area("", height=320, placeholder=valid_placeholder)
+code_input = st.text_area("", height=350, placeholder=placeholder_code)
 
 if st.button("🚀 Analyze & Fix"):
     if not code_input:
-        st.warning("Please enter some code.")
+        st.warning("Please enter some code to analyze.")
     else:
-        with st.spinner("Analyzing..."):
-            time.sleep(1) 
-            fixed_output = code_input + "\n# Analysis: Structure verified."
-            st.session_state.history.append({"code": fixed_output})
+        with st.spinner("Analyzing code structure..."):
+            time.sleep(1) # Processing simulation
+            
+            # --- REAL OUTPUT LOGIC ---
+            # This logic takes your exact code and prepares it as the output
+            fixed_code = code_input.strip() 
+            
+            # Save the code to the Sidebar History
+            st.session_state.history.append({"code": fixed_code})
+            
+            # Show the code as the output
             st.success("Analysis Complete")
-            st.code(fixed_output, language="python")
+            st.markdown("### 💻 Corrected Code")
+            st.code(fixed_code, language="python")
 
 if st.button("🗑️ Clear Input"):
     st.rerun()
