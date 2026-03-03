@@ -11,9 +11,7 @@ st.markdown("""
     [data-testid="stSidebar"] { background-color: #000000 !important; }
     
     /* HIDE THE "Press Ctrl+Enter" HINT */
-    .stTextArea div[data-baseweb="textarea"] + div {
-        display: none !important;
-    }
+    .stTextArea div[data-baseweb="textarea"] + div { display: none !important; }
 
     /* Terminal Styling - NO RED */
     .stTextArea>div>div>textarea {
@@ -52,21 +50,18 @@ st.markdown("""
 if "history" not in st.session_state: st.session_state.history = []
 
 # --- MAIN UI ---
-st.title("🤖 Precision C & Python Debugger")
-code_input = st.text_area("Input Terminal:", height=400, placeholder="Paste your code here...")
+st.title("🤖 100% Line-by-Line Debugger")
+code_input = st.text_area("Input Terminal:", height=400, placeholder="Paste C or Python code...")
 
-if st.button("🚀 Run Deep Scan"):
+if st.button("🚀 Execute Full Deep Scan"):
     if not code_input:
         st.warning("Please enter code.")
     else:
-        with st.spinner("Analyzing code structure..."):
+        with st.spinner("Analyzing every line..."):
             time.sleep(0.5)
             lines = code_input.split('\n')
             
-            # --- STEP 1: SMART LANGUAGE DETECTION ---
-            # Determine if we are in C mode or Python mode
-            is_c_mode = any(x in code_input for x in ["#include", "int main", "printf", "scanf", "float ", "char "])
-            
+            # This loop forces the processor to stop at EVERY line index
             for i in range(len(lines)):
                 line = lines[i]
                 clean = line.strip()
@@ -75,42 +70,42 @@ if st.button("🚀 Run Deep Scan"):
                 if not clean: continue
 
                 line_errors = []
-                fixed_line = clean
+                final_fix = clean
 
-                # --- STEP 2: APPLY LANGUAGE-SPECIFIC RULES ---
-                if is_c_mode:
-                    # C RULES ONLY
-                    if not clean.endswith(";") and not any(x in clean for x in ["{", "}", "#", "main", "if", "for", "while", "else"]):
-                        line_errors.append("Missing semicolon (;)")
-                        fixed_line = fixed_line + ";"
-                    
-                    if "printf(" in clean and '"' not in clean:
-                        line_errors.append("Missing double quotes (\" \")")
-                        try:
-                            content = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                            fixed_line = f'printf("{content}");'
-                        except: pass
-                else:
-                    # PYTHON RULES ONLY
-                    if any(clean.startswith(x) for x in ["if ", "def ", "for ", "while ", "elif ", "else"]) and not clean.endswith(":"):
-                        line_errors.append("Missing colon (:)")
-                        fixed_line = fixed_line.rstrip() + ":"
-                    
-                    if "print(" in clean and not ("'" in clean or '"' in clean):
-                        line_errors.append("Missing string quotes")
-                        try:
-                            content = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                            fixed_line = f"print('{content}')"
-                        except: pass
+                # --- UNIVERSAL SCANNER (NO SKIPPING) ---
+                
+                # 1. C-Logic: Missing Semicolon Check
+                # If it's a standard C statement (not a block, not a header)
+                if not clean.endswith(";") and not any(x in clean for x in ["{", "}", "#", "main", "if", "for", "while", "else", "def "]):
+                    line_errors.append("Missing semicolon (;)")
+                    final_fix = final_fix + ";"
 
-                # --- STEP 3: RENDER RESULTS ---
+                # 2. Universal Print/Printf Quote Check
+                if ("print(" in clean or "printf(" in clean) and '"' not in clean and "'" not in clean:
+                    line_errors.append("Missing string quotes")
+                    try:
+                        content = clean.split('(', 1)[1].rsplit(')', 1)[0]
+                        if "printf" in clean:
+                            final_fix = f'printf("{content}");'
+                        else:
+                            final_fix = f"print('{content}')"
+                    except: pass
+
+                # 3. Python-Logic: Colon Check
+                # Only triggers for Python keywords to avoid adding colons to C
+                if any(clean.startswith(x) for x in ["if ", "def ", "for ", "while ", "elif ", "else"]) and not clean.endswith(":"):
+                    if not clean.endswith(";"): # Ensure we don't double up
+                        line_errors.append("Missing block colon (:)")
+                        final_fix = final_fix.rstrip() + ":"
+
+                # --- RENDER CARD ---
                 if line_errors:
-                    error_html = "".join([f'<div class="explanation-item">⚠️ {err}</div>' for err in line_errors])
+                    error_html = "".join([f'<div class="explanation-item">⚠️ {err}</div>' for err in set(line_errors)])
                     st.markdown(f"""
                     <div class="error-card">
-                        <div class="card-header">Line {ln}: Syntax Analysis</div>
+                        <div class="card-header">Line {ln}: Analysis Result</div>
                         {error_html}
-                        <div class="fix-box"><b>Corrected Version:</b><br>{fixed_line}</div>
+                        <div class="fix-box"><b>Corrected:</b><br>{final_fix}</div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -118,4 +113,3 @@ if st.button("🚀 Run Deep Scan"):
 
 if st.button("🗑️ Clear Input"):
     st.rerun()
-
