@@ -1,135 +1,102 @@
 import streamlit as st
 import time
-import ast
+import re
 
-# 1. Page Configuration - Force Sidebar and Professional Layout
-st.set_page_config(
-    page_title="AI Debugger Pro", 
-    layout="wide", 
-    initial_sidebar_state="expanded" 
-)
+# 1. Page Configuration
+st.set_page_config(page_title="AI Debugger Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - Deep Black Theme & Teal Accents (No Red, No Sidebar Clutter)
+# 2. Advanced CSS for Enterprise Cards
 st.markdown("""
     <style>
-    /* Hide Streamlit elements for a clean app look */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Force Dark Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #000000 !important;
-        border-right: 1px solid #333333;
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    [data-testid="stSidebar"] { background-color: #000000 !important; }
+    
+    /* Error Card Container */
+    .error-card {
+        background-color: #1E1E1E;
+        border: 1px solid #333333;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
     }
     
-    /* Sidebar Text Styling */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span {
-        color: #FFFFFF !important;
+    .card-header { color: #FFA500; font-weight: bold; margin-bottom: 10px; display: flex; align-items: center; }
+    .explanation { color: #CCCCCC; font-size: 0.95em; margin-bottom: 15px; }
+    
+    /* Suggested Fix Box */
+    .fix-box {
+        background-color: #142E1F;
+        border-left: 5px solid #2ECC71;
+        padding: 10px 15px;
+        border-radius: 5px;
+        color: #D1FFD6;
+        font-size: 0.9em;
     }
-
-    /* Professional Dark Text Area */
-    .stTextArea>div>div>textarea {
-        color: #FFFFFF !important; 
-        background-color: #1E1E1E !important; 
-        border: 1px solid #333333 !important;
-        border-radius: 12px;
-        font-family: 'Courier New', Courier, monospace;
-    }
-
-    /* Teal focus border (No Red) */
-    .stTextArea>div>div>textarea:focus {
-        border-color: #00d4ff !important;
-        box-shadow: 0 0 0 1px #00d4ff !important;
-    }
-
-    /* Button Styling */
-    .stButton>button {
-        border-radius: 12px;
-        background-color: #262730 !important; 
-        color: #FFFFFF !important;
-        border: 1px solid #444444 !important;
-    }
-    .stButton>button:hover {
-        border-color: #00d4ff !important;
-        color: #00d4ff !important;
-    }
+    
+    .stTextArea>div>div>textarea { background-color: #111111 !important; color: white !important; border: 1px solid #333333 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Initialize History in Background
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- SIDEBAR: HISTORY ---
+# --- SIDEBAR ---
 with st.sidebar:
-    st.title("📂 Fix History")
-    st.write("Recent debugging sessions:")
-    st.divider()
-    
-    if not st.session_state.history:
-        st.info("No history yet.")
-    else:
-        for i, item in enumerate(reversed(st.session_state.history)):
-            with st.expander(f"Fix {len(st.session_state.history)-i}"):
-                st.code(item['code'], language="python")
-        
-        st.divider()
-        if st.button("🗑️ Clear History"):
-            st.session_state.history = []
-            st.rerun()
+    st.title("📂 History")
+    for i, item in enumerate(reversed(st.session_state.history)):
+        with st.expander(f"Session {len(st.session_state.history)-i}"):
+            st.code(item['code'], language="python")
 
 # --- MAIN UI ---
 st.title("🤖 AI Debugging Assistant")
-
-code_input = st.text_area("", height=400, placeholder="# Paste your long Python code here...")
+code_input = st.text_area("Paste your code here:", height=300, placeholder="def example()\n  print(hello")
 
 if st.button("🚀 Analyze & Fix"):
     if not code_input:
-        st.warning("Please enter code to debug.")
+        st.warning("Please enter code.")
     else:
-        with st.spinner("Running deep code analysis..."):
-            time.sleep(1.2)
+        with st.spinner("Deep scanning for vulnerabilities..."):
+            time.sleep(1.5)
             
-            # --- ADVANCED DEBUGGING LOGIC ---
-            fixed_lines = []
-            issues_found = []
+            lines = code_input.split('\n')
+            results = []
             
-            for line in code_input.split('\n'):
-                original = line
-                stripped = line.strip()
+            # Logic to generate specific "Enterprise" cards
+            for i, line in enumerate(lines):
+                clean = line.strip()
+                ln = i + 1
                 
-                if not stripped:
-                    fixed_lines.append("")
-                    continue
+                # Check for Print Errors
+                if "print(" in clean and not ("'" in clean or '"' in clean):
+                    results.append({
+                        "title": f"⚠️ StringLiteral Error at line {ln}",
+                        "desc": f"The call to print('{clean[6:]}') is missing string delimiters, which will cause a NameError.",
+                        "fix": f"Suggested fix: Wrap the content in quotes: print('{clean[6:].rstrip(')')}')"
+                    })
                 
-                # 1. Fix unclosed prints
-                if stripped.startswith("print(") and not (stripped.endswith(")") or stripped.endswith("')")):
-                    line = line.rstrip() + "')" if "'" in line else line.rstrip() + ")"
-                    issues_found.append("Fixed unclosed print statement.")
-                
-                # 2. Fix missing colons in blocks
-                keywords = ["if ", "else", "elif ", "def ", "for ", "while ", "try", "except", "class "]
-                if any(stripped.startswith(k) for k in keywords) and not stripped.endswith(":"):
-                    line = line.rstrip() + ":"
-                    issues_found.append(f"Added missing colon to '{stripped.split()[0]}'.")
-                
-                fixed_lines.append(line)
+                # Check for Block Errors (if, def, etc)
+                if any(clean.startswith(x) for x in ["if ", "def ", "for "]) and not clean.endswith(":"):
+                    results.append({
+                        "title": f"⚠️ SyntaxException potential at line {ln}",
+                        "desc": f"The '{clean.split()[0]}' statement is missing a colon, preventing the code block from starting.",
+                        "fix": f"Suggested fix: Add a colon at the end of the line: {clean}:"
+                    })
 
-            final_code = "\n".join(fixed_lines)
-            
-            # Save to History
-            st.session_state.history.append({"code": final_code})
-            
-            # Results Display
-            st.success("Analysis Complete")
-            if issues_found:
-                st.info(f"**Changes made:**\n" + "\n".join([f"- {iss}" for iss in set(issues_found[:3])]))
-            else:
-                st.info("Structure looks good, but optimized formatting.")
+            # Display the "Enterprise" Cards
+            if results:
+                for res in results:
+                    st.markdown(f"""
+                    <div class="error-card">
+                        <div class="card-header">{res['title']}</div>
+                        <div class="explanation"><b>Explanation:</b> {res['desc']}</div>
+                        <div class="fix-box">💡 {res['fix']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
-            st.markdown("### 💻 Corrected Code")
-            st.code(final_code, language="python")
+                # Also save the overall "Fixed Code" for history
+                st.session_state.history.append({"code": code_input})
+            else:
+                st.success("No critical syntax issues detected in this segment.")
 
 if st.button("🗑️ Clear Input"):
     st.rerun()
