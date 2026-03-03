@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 from pydantic import BaseModel
 
-# 1. AI Output Structure
+# AI Output Structure
 class DebugResult(BaseModel):
     error_type: str
     line_number: str
@@ -10,27 +10,33 @@ class DebugResult(BaseModel):
     fix_snippet: str
     quick_fix: str
 
-# 2. Page Configuration
+# Page Configuration
 st.set_page_config(page_title="AI Debugger Pro", layout="wide")
 
-# 3. Custom CSS - NO MORE RED
+# CUSTOM CSS - KILLING ALL RED
 st.markdown("""
     <style>
-    /* Dark Sidebar */
+    /* 1. Dark Sidebar */
     [data-testid="stSidebar"] {
         background-color: #111111;
         color: white;
     }
     
-    /* Dark Text Area with White Text */
+    /* 2. DARK TEXT AREA + DARK BORDER (Removing the Red Border) */
     .stTextArea>div>div>textarea {
         color: #FFFFFF !important; 
         background-color: #1E1E1E !important; 
-        border: 1px solid #333333;
+        border: 1px solid #444444 !important; /* Dark border instead of red */
         border-radius: 8px;
     }
+    
+    /* Fix for when you click inside the text box */
+    .stTextArea>div>div>textarea:focus {
+        border-color: #00FFCC !important; /* Sleek teal glow instead of red */
+        box-shadow: 0 0 0 1px #00FFCC !important;
+    }
 
-    /* SLEEK GRAY BUTTONS (Fixing the Red) */
+    /* 3. DARK BUTTONS (Forcing Gray/Black) */
     .stButton>button {
         border-radius: 8px;
         height: 3em;
@@ -40,14 +46,14 @@ st.markdown("""
         font-weight: 500;
     }
     
-    /* Subtle glow on hover instead of color change */
+    /* Hover state - No Red */
     .stButton>button:hover {
         background-color: #444444 !important;
         border: 1px solid #00FFCC !important;
         color: #00FFCC !important;
     }
 
-    /* Clean Sidebar text */
+    /* Sidebar text colors */
     [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] p, 
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
         color: white !important;
@@ -55,7 +61,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 4. Initialize History
+# Initialize History
 if "history" not in st.session_state:
     st.session_state.history = []
 
