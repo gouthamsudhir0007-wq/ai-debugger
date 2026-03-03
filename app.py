@@ -1,9 +1,8 @@
 import streamlit as st
 from openai import OpenAI
 from pydantic import BaseModel
-import json
 
-# 1. Define the Structure (JSON Schema)
+# 1. Structure for the AI Output
 class DebugResult(BaseModel):
     error_type: str
     line_number: str
@@ -11,60 +10,72 @@ class DebugResult(BaseModel):
     fix_snippet: str
     quick_fix: str
 
-# 2. Setup Page Config
-st.set_page_config(page_title="AI Debugging Assistant", layout="wide")
-st.title("🤖 AI Debugging Assistant")
-st.caption("Paste your code below to find and fix bugs in real-time.")
+# 2. Page Configuration
+st.set_page_config(page_title="AI Debugger Pro", layout="wide")
 
-# Sidebar for API Key & Model Config
+# Initialize History in Session State
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+# --- SIDEBAR: HISTORY ---
 with st.sidebar:
-    api_key = st.text_input("OpenAI API Key", type="password")
-    model = st.selectbox("Model", ["gpt-4o", "gpt-4o-mini"], index=1)
-    st.info("Tip: Use 'gpt-4o-mini' for speed and 'gpt-4o' for complex logic.")
+    st.title("📂 Debug History")
+    if not st.session_state.history:
+        st.info("No bugs analyzed yet.")
+    else:
+        for i, item in enumerate(reversed(st.session_state.history)):
+            with st.expander(f"Bug {len(st.session_state.history) - i}: {item['type']}"):
+                st.write(f"**Fix:** {item['fix']}")
+                st.caption(f"Line: {item['line']}")
+    
+    st.divider()
+    if st.button("Clear History"):
+        st.session_state.history = []
+        st.rerun()
 
-# 3. Code Input
-code_input = st.text_area("Paste your code here:", height=250, placeholder="def hello_world():\n    print('Hello' + 123) # Example bug")
+# --- MAIN UI ---
+st.title("🤖 AI Debugging Assistant")
 
-if st.button("Analyze Code") and code_input:
+# API Key Check (Use Secrets for permanent setup)
+api_key = st.text_input("OpenAI API Key", type="password")
+
+code_input = st.text_area("Paste your code here:", height=200)
+
+col_run, col_clear = st.columns(2)
+
+if col_run.button("🚀 Analyze Code") and code_input:
     if not api_key:
-        st.error("Please enter your OpenAI API Key in the sidebar.")
+        st.error("Please provide an API Key.")
     else:
         try:
             client = OpenAI(api_key=api_key)
-            
-            with st.spinner("Analyzing code..."):
-                # 4. The AI Call with Structured Output
+            with st.spinner("Thinking..."):
                 completion = client.beta.chat.completions.parse(
-                    model=model,
+                    model="gpt-4o-mini",
                     messages=[
-                        {"role": "system", "content": "You are a professional debugging assistant. Analyze the code provided, identify the bug, and return a structured JSON response."},
+                        {"role": "system", "content": "You are a senior developer. Analyze code and return JSON."},
                         {"role": "user", "content": code_input},
                     ],
                     response_format=DebugResult,
                 )
                 
-                result = completion.choices[0].message.parsed
+                res = completion.choices[0].message.parsed
 
-                # 5. Render Results in the UI
-                st.subheader("🔍 Analysis Results")
-                
-                col1, col2 = st.columns([1, 2])
-                
-                with col1:
-                    st.error(f"**Error Type:** {result.error_type}")
-                    st.warning(f"**Line Number:** {result.line_number}")
-                    st.info(f"**Quick Fix:** {result.quick_fix}")
-                
-                with col2:
-                    st.markdown("### 📝 Explanation")
-                    st.write(result.explanation)
-                    
-                    st.markdown("### 🛠️ Suggested Fix")
-                    st.code(result.fix_snippet, language="python")
+                # Add to History
+                st.session_state.history.append({
+                    "type": res.error_type,
+                    "fix": res.quick_fix,
+                    "line": res.line_number
+                })
+
+                # Show Results
+                st.success(f"Fixed: {res.error_type}")
+                st.markdown(f"### 💡 Explanation\n{res.explanation}")
+                st.code(res.fix_snippet, language="python")
+                st.rerun() # Refresh to update the sidebar history immediately
 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"Error: {e}")
 
-# 6. Footer
-st.divider()
-st.markdown("Built with Streamlit & OpenAI Structured Outputs")
+if col_clear.button("🗑️ Clear Input"):
+    st.rerun()
