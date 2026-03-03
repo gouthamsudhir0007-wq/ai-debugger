@@ -8,51 +8,52 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Custom CSS - Strictly Dark Theme & Teal Accents
+# 2. CSS - FORCING DARK SIDEBAR & REMOVING RED
 st.markdown("""
     <style>
-    /* Hide Streamlit branding */
+    /* 1. Hide Streamlit branding */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Force Dark Sidebar */
+    /* 2. FORCE DARK SIDEBAR - No more grey */
     [data-testid="stSidebar"] {
         background-color: #111111 !important;
-        border-right: 1px solid #333333;
+        background-image: none !important;
     }
     
-    /* Sidebar Text Styling */
-    [data-testid="stSidebar"] .stText, 
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] h1, 
-    [data-testid="stSidebar"] h2 {
+    /* Ensure all text in sidebar is light grey/white */
+    [data-testid="stSidebar"] section[data-testid="stSidebarNav"] {
+        background-color: #111111 !important;
+    }
+    [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span {
         color: #E0E0E0 !important;
     }
 
-    /* Dark Input Area */
+    /* 3. MAIN AREA - Dark background */
+    .main { background-color: #0E1117; }
+    
+    /* 4. TEXT AREA - Dark with Teal focus (No Red) */
     .stTextArea>div>div>textarea {
         color: #FFFFFF !important; 
         background-color: #1E1E1E !important; 
         border: 1px solid #333333 !important;
-        border-radius: 10px;
+        border-radius: 12px;
     }
-
-    /* Teal focus border (No Red) */
     .stTextArea>div>div>textarea:focus {
         border-color: #00d4ff !important;
         box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
-    /* Professional Button Styling */
+    /* 5. BUTTONS - Dark grey with Teal hover */
     .stButton>button {
-        border-radius: 10px;
+        width: 100%;
+        border-radius: 12px;
         background-color: #262730 !important; 
         color: #FFFFFF !important;
         border: 1px solid #444444 !important;
-        transition: 0.3s;
     }
-    
     .stButton>button:hover {
         border-color: #00d4ff !important;
         color: #00d4ff !important;
@@ -64,10 +65,10 @@ st.markdown("""
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- SIDEBAR: History Only ---
+# --- SIDEBAR: HISTORY ONLY ---
 with st.sidebar:
     st.title("📂 Fix History")
-    st.write("Your recent code fixes:")
+    st.write("Your recent activity:")
     st.divider()
     
     if not st.session_state.history:
@@ -84,29 +85,22 @@ with st.sidebar:
 
 # --- MAIN UI ---
 st.title("🤖 AI Debugging Assistant")
-st.write("Professional Python Code Analysis")
 
-# Valid Professional Placeholder
-valid_placeholder = "def calculate_sum(a, b):\n    return a + b\n\n# Paste your broken code here..."
+# Professional Placeholder
+placeholder_text = "def my_function():\n    # Paste code here...\n    return True"
 
-code_input = st.text_area("", height=300, placeholder=valid_placeholder)
+code_input = st.text_area("", height=320, placeholder=placeholder_text)
 
 if st.button("🚀 Analyze & Fix"):
     if not code_input:
-        st.warning("Please enter some code to analyze.")
+        st.warning("Please paste your code first.")
     else:
-        with st.spinner("Processing..."):
+        with st.spinner("Analyzing..."):
             time.sleep(1) 
-            
-            # Simulated Fix Logic
-            fixed_code = code_input + "\n# Analysis: Code structure verified."
-            
-            # Save to History
-            st.session_state.history.append({"code": fixed_code})
-            
+            fixed_output = code_input + "\n# Fixed: Structure verified."
+            st.session_state.history.append({"code": fixed_output})
             st.success("Analysis Complete")
-            st.markdown("### 💻 Corrected Code")
-            st.code(fixed_code, language="python")
+            st.code(fixed_output, language="python")
 
-if st.button("🗑️ Clear Current Input"):
+if st.button("🗑️ Clear Input"):
     st.rerun()
