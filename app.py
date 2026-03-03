@@ -4,12 +4,18 @@ import time
 # 1. Page Configuration
 st.set_page_config(page_title="AI Debugger Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - PURE DARK / TEAL FOCUS / NO RED
+# 2. CSS - HIDE CTRL+ENTER / TEAL FOCUS / NO RED
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     [data-testid="stSidebar"] { background-color: #000000 !important; }
     
+    /* HIDE THE "Press Ctrl+Enter" HINT */
+    .stTextArea div[data-baseweb="textarea"] + div {
+        display: none !important;
+    }
+
+    /* Terminal Styling - NO RED */
     .stTextArea>div>div>textarea {
         background-color: #111111 !important; 
         color: #FFFFFF !important; 
@@ -21,6 +27,7 @@ st.markdown("""
         box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
+    /* Enterprise Result Cards */
     .error-card {
         background-color: #1E1E1E;
         border: 1px solid #444444;
@@ -28,15 +35,15 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 15px;
     }
-    .card-header { color: #FFA500; font-weight: bold; margin-bottom: 8px; font-size: 1.1em; }
-    .explanation-item { color: #BBBBBB; font-size: 0.95em; margin-bottom: 5px; padding-left: 10px; border-left: 2px solid #FFA500; }
+    .card-header { color: #FFA500; font-weight: bold; margin-bottom: 8px; }
+    .explanation-item { color: #BBBBBB; font-size: 0.92em; margin-bottom: 4px; padding-left: 10px; border-left: 2px solid #FFA500; }
     .fix-box {
         background-color: #142E1F;
         border-left: 5px solid #2ECC71;
         padding: 12px;
         border-radius: 6px;
         color: #D1FFD6;
-        font-family: 'Courier New', monospace;
+        font-family: monospace;
         margin-top: 10px;
     }
     </style>
@@ -45,57 +52,60 @@ st.markdown("""
 if "history" not in st.session_state: st.session_state.history = []
 
 # --- MAIN UI ---
-st.title("🤖 Advanced C & Python Debugger")
-code_input = st.text_area("Input Terminal:", height=350, placeholder="Paste code here...")
+st.title("🤖 Multi-Bug C & Python Debugger")
+code_input = st.text_area("Input Terminal:", height=350, placeholder="int x = 10\nprintf(Hello)")
 
-if st.button("🚀 Run Smart Analysis"):
+if st.button("🚀 Run Analysis"):
     if not code_input:
         st.warning("Please enter code.")
     else:
-        with st.spinner("Analyzing line-by-line..."):
+        with st.spinner("Analyzing all lines..."):
             time.sleep(1)
             lines = code_input.split('\n')
             
+            # Detect language context
+            is_c = any(x in code_input for x in [";", "printf", "int ", "float ", "include", "main", "{"])
+
             for i, line in enumerate(lines):
                 clean = line.strip()
                 ln = i + 1
                 if not clean: continue
 
-                # Containers for this specific line
                 line_errors = []
                 fixed_line = clean
 
-                # --- MULTI-BUG DETECTION (C & Python) ---
-                
-                # Check 1: Semicolons (C)
-                if ";" in code_input or "printf" in clean:
-                    if not clean.endswith(";") and not any(x in clean for x in ["{", "}", "#", "main"]):
+                # --- AGGRESSIVE C DEBUGGING ---
+                if is_c:
+                    # 1. Check for missing semicolons on declarations and calls
+                    if not clean.endswith(";") and not any(x in clean for x in ["{", "}", "#", "main", "if", "for", "while"]):
                         line_errors.append("Missing terminating semicolon (;)")
                         fixed_line = fixed_line + ";"
-                
-                # Check 2: Quotes/Strings (C & Py)
-                if ("printf(" in clean or "print(" in clean) and '"' not in clean and "'" not in clean:
-                    line_errors.append("Missing string delimiters (quotes)")
-                    if "printf(" in clean:
+                    
+                    # 2. Check for malformed printf
+                    if "printf(" in clean and '"' not in clean:
+                        line_errors.append("Missing string double-quotes (\" \")")
                         content = clean.split('(')[1].split(')')[0]
                         fixed_line = f'printf("{content}");'
-                    else:
+
+                # --- AGGRESSIVE PYTHON DEBUGGING ---
+                else:
+                    if "print(" in clean and not ("'" in clean or '"' in clean):
+                        line_errors.append("Missing string delimiters (quotes)")
                         content = clean.split('(')[1].split(')')[0]
                         fixed_line = f"print('{content}')"
+                    
+                    if any(clean.startswith(x) for x in ["if ", "def ", "for ", "while "]) and not clean.endswith(":"):
+                        line_errors.append("Missing block colon (:)")
+                        fixed_line = fixed_line + ":"
 
-                # Check 3: Python Colons
-                if any(clean.startswith(x) for x in ["if ", "def ", "for "]) and not clean.endswith(":"):
-                    line_errors.append("Missing block colon (:)")
-                    fixed_line = fixed_line + ":"
-
-                # --- DISPLAY SINGLE CARD FOR MULTIPLE BUGS ---
+                # Render Integrated Card
                 if line_errors:
-                    error_list_html = "".join([f'<div class="explanation-item">⚠️ {err}</div>' for err in line_errors])
+                    error_html = "".join([f'<div class="explanation-item">⚠️ {err}</div>' for err in line_errors])
                     st.markdown(f"""
                     <div class="error-card">
-                        <div class="card-header">Line {ln}: Multiple Issues Detected</div>
-                        {error_list_html}
-                        <div class="fix-box"><b>Suggested Fix:</b><br>{fixed_line}</div>
+                        <div class="card-header">Line {ln}: Syntax Issues Found</div>
+                        {error_html}
+                        <div class="fix-box"><b>Corrected Line:</b><br>{fixed_line}</div>
                     </div>
                     """, unsafe_allow_html=True)
             
