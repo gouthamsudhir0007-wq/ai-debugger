@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 from pydantic import BaseModel
 
-# AI Output Structure
+# 1. AI Output Structure
 class DebugResult(BaseModel):
     error_type: str
     line_number: str
@@ -10,58 +10,76 @@ class DebugResult(BaseModel):
     fix_snippet: str
     quick_fix: str
 
-# Page Configuration
+# 2. Page Configuration
 st.set_page_config(page_title="AI Debugger Pro", layout="wide")
 
-# CUSTOM CSS - KILLING ALL RED
+# 3. Custom CSS - COLOR MATCHED (No Red)
 st.markdown("""
     <style>
-    /* 1. Dark Sidebar */
+    /* Global Background match */
+    .main {
+        background-color: #0E1117;
+    }
+
+    /* Dark Sidebar */
     [data-testid="stSidebar"] {
         background-color: #111111;
-        color: white;
+        border-right: 1px solid #333333;
     }
     
-    /* 2. DARK TEXT AREA + DARK BORDER (Removing the Red Border) */
+    /* DARK TEXT AREA - Removing Red Outlines */
     .stTextArea>div>div>textarea {
         color: #FFFFFF !important; 
         background-color: #1E1E1E !important; 
-        border: 1px solid #444444 !important; /* Dark border instead of red */
+        border: 1px solid #333333 !important; /* Subtle gray border */
         border-radius: 8px;
     }
     
-    /* Fix for when you click inside the text box */
+    /* Fix the border when typing/clicking (Turns Teal instead of Red) */
     .stTextArea>div>div>textarea:focus {
-        border-color: #00FFCC !important; /* Sleek teal glow instead of red */
-        box-shadow: 0 0 0 1px #00FFCC !important;
+        border-color: #00d4ff !important; 
+        box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
-    /* 3. DARK BUTTONS (Forcing Gray/Black) */
+    /* SLEEK BUTTONS - Dark with Teal hover */
     .stButton>button {
         border-radius: 8px;
         height: 3em;
-        background-color: #333333 !important; 
-        color: white !important;
+        background-color: #262730 !important; 
+        color: #FFFFFF !important;
         border: 1px solid #444444 !important;
-        font-weight: 500;
+        transition: 0.3s;
     }
     
-    /* Hover state - No Red */
     .stButton>button:hover {
-        background-color: #444444 !important;
-        border: 1px solid #00FFCC !important;
-        color: #00FFCC !important;
+        border-color: #00d4ff !important;
+        color: #00d4ff !important;
+        background-color: #1E1E1E !important;
     }
 
     /* Sidebar text colors */
     [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
-        color: white !important;
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] span {
+        color: #E0E0E0 !important;
+    }
+    
+    /* Style the tabs to match the dark theme */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1E1E1E;
+        border-radius: 4px 4px 0 0;
+        color: white;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #00d4ff22 !important;
+        border-bottom: 2px solid #00d4ff !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Initialize History
+# 4. Initialize History
 if "history" not in st.session_state:
     st.session_state.history = []
 
@@ -93,7 +111,6 @@ code_input = st.text_area("Paste your broken code here:", height=300, placeholde
 col1, col2 = st.columns([1, 1])
 
 if col1.button("🚀 Analyze & Fix") and code_input:
-    # Uses the Secure Secret Key
     if "OPENAI_API_KEY" not in st.secrets:
         st.error("Missing API Key! Please add it to 'Secrets' in the Manage App menu.")
     else:
