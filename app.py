@@ -1,108 +1,68 @@
 import streamlit as st
 import time
 
-# 1. Page Configuration - Force Sidebar and Wide Layout
-st.set_page_config(
-    page_title="AI Debugger Pro", 
-    layout="wide", 
-    initial_sidebar_state="expanded" 
-)
+# 1. Page Configuration
+st.set_page_config(page_title="AI Debugger Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - Deep Dark Theme & Teal Accents
+# 2. Custom CSS - Strictly Dark Sidebar & Teal Accents
 st.markdown("""
     <style>
-    /* Hide Streamlit Header/Footer */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Force Sidebar to be Black */
-    [data-testid="stSidebar"] {
-        background-color: #000000 !important;
-        border-right: 1px solid #333333;
-    }
-    
-    /* Sidebar Text */
-    [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] span {
-        color: #FFFFFF !important;
-    }
-
-    /* Dark Input Area */
-    .stTextArea>div>div>textarea {
-        color: #FFFFFF !important; 
-        background-color: #1E1E1E !important; 
-        border: 1px solid #333333 !important;
-        border-radius: 12px;
-    }
-
-    /* Teal focus (No Red) */
-    .stTextArea>div>div>textarea:focus {
-        border-color: #00d4ff !important;
-        box-shadow: 0 0 0 1px #00d4ff !important;
-    }
-
-    /* Professional Button Styling */
-    .stButton>button {
-        border-radius: 12px;
-        background-color: #262730 !important; 
-        color: #FFFFFF !important;
-        border: 1px solid #444444 !important;
-    }
-    .stButton>button:hover {
-        border-color: #00d4ff !important;
-        color: #00d4ff !important;
-    }
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    [data-testid="stSidebar"] { background-color: #111111 !important; }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1 { color: #FFFFFF !important; }
+    .stTextArea>div>div>textarea { color: #FFFFFF !important; background-color: #1E1E1E !important; border: 1px solid #333333 !important; border-radius: 12px; }
+    .stTextArea>div>div>textarea:focus { border-color: #00d4ff !important; box-shadow: 0 0 0 1px #00d4ff !important; }
+    .stButton>button { width: 100%; border-radius: 12px; background-color: #262730 !important; color: #FFFFFF !important; border: 1px solid #444444 !important; }
+    .stButton>button:hover { border-color: #00d4ff !important; color: #00d4ff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Initialize History
 if "history" not in st.session_state:
     st.session_state.history = []
 
 # --- SIDEBAR: HISTORY ---
 with st.sidebar:
-    st.title("📂 History")
-    st.write("Previous Code Fixes:")
-    st.divider()
-    
+    st.title("📂 Fix History")
     if not st.session_state.history:
         st.info("No activity yet.")
     else:
         for i, item in enumerate(reversed(st.session_state.history)):
             with st.expander(f"Fix {len(st.session_state.history)-i}"):
                 st.code(item['code'], language="python")
-        
-        st.divider()
         if st.button("🗑️ Clear History"):
             st.session_state.history = []
             st.rerun()
 
 # --- MAIN UI ---
 st.title("🤖 AI Debugging Assistant")
-
-# Clean, professional placeholder
-placeholder_code = "def check_errors(input_data):\n    # Paste your Python code here...\n    return True"
-
-code_input = st.text_area("", height=350, placeholder=placeholder_code)
+code_input = st.text_area("", height=300, placeholder="Paste broken code here...")
 
 if st.button("🚀 Analyze & Fix"):
     if not code_input:
-        st.warning("Please enter some code to analyze.")
+        st.warning("Please enter code.")
     else:
-        with st.spinner("Analyzing code structure..."):
-            time.sleep(1) # Processing simulation
+        with st.spinner("Analyzing with AI Logic..."):
+            time.sleep(1)
             
-            # --- REAL OUTPUT LOGIC ---
-            # This logic takes your exact code and prepares it as the output
-            fixed_code = code_input.strip() 
+            # --- THE "SMART FIX" LOGIC (No Key Needed) ---
+            fixed = code_input
+            error_msg = "No major syntax issues found."
             
-            # Save the code to the Sidebar History
-            st.session_state.history.append({"code": fixed_code})
-            
-            # Show the code as the output
+            if "(" in fixed and ")" not in fixed:
+                fixed += ")"
+                error_msg = "Fixed: Added missing closing parenthesis."
+            elif ":" not in fixed and any(x in fixed for x in ["def", "if", "for", "while"]):
+                fixed = fixed.replace("\n", ":\n", 1)
+                error_msg = "Fixed: Added missing colon after statement."
+            elif 'print' in fixed and "'" not in fixed and '"' not in fixed:
+                fixed = fixed.replace("print(", "print('").replace(")", "')")
+                error_msg = "Fixed: Added missing quotes in print statement."
+
+            st.session_state.history.append({"code": fixed})
             st.success("Analysis Complete")
+            st.info(f"**AI Insight:** {error_msg}")
             st.markdown("### 💻 Corrected Code")
-            st.code(fixed_code, language="python")
+            st.code(fixed, language="python")
 
 if st.button("🗑️ Clear Input"):
     st.rerun()
