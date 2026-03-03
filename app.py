@@ -13,7 +13,7 @@ class DebugResult(BaseModel):
 # 2. Page Configuration
 st.set_page_config(page_title="AI Debugger Pro", layout="wide")
 
-# 3. Custom CSS for FULL DARK THEME
+# 3. Custom CSS - NO MORE RED
 st.markdown("""
     <style>
     /* Dark Sidebar */
@@ -22,31 +22,32 @@ st.markdown("""
         color: white;
     }
     
-    /* DARK TEXT AREA - Fixing your request */
+    /* Dark Text Area with White Text */
     .stTextArea>div>div>textarea {
-        color: #FFFFFF !important; /* Bright white text */
-        background-color: #262730 !important; /* Dark charcoal background */
-        border: 1px solid #4F4F4F;
-        border-radius: 10px;
-        font-family: 'Source Code Pro', monospace;
+        color: #FFFFFF !important; 
+        background-color: #1E1E1E !important; 
+        border: 1px solid #333333;
+        border-radius: 8px;
     }
 
-    /* Button Styling */
+    /* SLEEK GRAY BUTTONS (Fixing the Red) */
     .stButton>button {
-        border-radius: 10px;
+        border-radius: 8px;
         height: 3em;
-        background-color: #FF4B4B; /* Red accent for the main button */
-        color: white;
-        font-weight: bold;
-        border: none;
+        background-color: #333333 !important; 
+        color: white !important;
+        border: 1px solid #444444 !important;
+        font-weight: 500;
     }
     
+    /* Subtle glow on hover instead of color change */
     .stButton>button:hover {
-        background-color: #ff3333;
-        border: none;
+        background-color: #444444 !important;
+        border: 1px solid #00FFCC !important;
+        color: #00FFCC !important;
     }
 
-    /* Sidebar text colors */
+    /* Clean Sidebar text */
     [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] p, 
     [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
         color: white !important;
@@ -81,7 +82,6 @@ with st.sidebar:
 st.title("🤖 AI Debugging Assistant")
 st.caption("Securely connected via Streamlit Secrets")
 
-# Main Code Input
 code_input = st.text_area("Paste your broken code here:", height=300, placeholder="Enter your Python code...")
 
 col1, col2 = st.columns([1, 1])
@@ -89,7 +89,7 @@ col1, col2 = st.columns([1, 1])
 if col1.button("🚀 Analyze & Fix") and code_input:
     # Uses the Secure Secret Key
     if "OPENAI_API_KEY" not in st.secrets:
-        st.error("Missing API Key! Add it to 'Secrets' in the Manage App menu.")
+        st.error("Missing API Key! Please add it to 'Secrets' in the Manage App menu.")
     else:
         try:
             client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -104,19 +104,16 @@ if col1.button("🚀 Analyze & Fix") and code_input:
                 )
                 res = completion.choices[0].message.parsed
                 
-                # Update History
                 st.session_state.history.append({
                     "type": res.error_type, 
                     "fix": res.quick_fix, 
                     "full_code": res.fix_snippet
                 })
 
-                # Results Layout
                 st.success(f"Error Identified: {res.error_type}")
                 t1, t2 = st.tabs(["💡 Explanation", "💻 Fixed Code"])
                 with t1:
                     st.write(res.explanation)
-                    st.info(f"**Line:** {res.line_number}")
                 with t2:
                     st.code(res.fix_snippet, language="python")
 
