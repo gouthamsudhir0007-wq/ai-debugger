@@ -2,9 +2,9 @@ import streamlit as st
 import re
 
 # 1. Page Configuration
-st.set_page_config(page_title="Master Python Debugger", layout="wide")
+st.set_page_config(page_title="Enterprise Python Logic Debugger", layout="wide")
 
-# 2. CSS - ENTERPRISE UI (No Red, Deep Teal Focus)
+# 2. CSS - ENTERPRISE STYLING (Restoring the Analysis Card UI)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -18,21 +18,34 @@ st.markdown("""
         font-family: 'Fira Code', monospace; 
     }
 
-    /* Enterprise Analysis Cards */
+    /* RESTORED: Enterprise Analysis Cards (Image 1 Style) */
     .error-card {
         background-color: #161b22;
         border: 1px solid #30363d;
         border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 15px;
+        padding: 24px;
+        margin-bottom: 20px;
     }
-    .card-header { color: #ffa657; font-weight: 800; font-size: 1.1em; margin-bottom: 8px; }
-    .explanation { color: #8b949e; font-size: 0.9em; margin-bottom: 12px; line-height: 1.4; }
+    .card-header { 
+        color: #ffa657; 
+        font-weight: 800; 
+        font-size: 1.2em; 
+        margin-bottom: 10px; 
+        display: flex; 
+        align-items: center; 
+    }
+    .explanation { 
+        color: #8b949e; 
+        font-size: 0.95em; 
+        margin-bottom: 15px; 
+        line-height: 1.5; 
+    }
     
     .fix-box {
         background-color: #0d1117;
+        border: 1px solid #238636;
         border-left: 6px solid #238636;
-        padding: 12px;
+        padding: 15px;
         border-radius: 8px;
         color: #3fb950;
         font-family: 'Fira Code', monospace;
@@ -40,105 +53,101 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Persistent State
-if "main_code" not in st.session_state: st.session_state.main_code = ""
+# 3. State Management
+if "input_code" not in st.session_state: st.session_state.input_code = ""
 if "fixed_code" not in st.session_state: st.session_state.fixed_code = ""
-if "detected_bugs" not in st.session_state: st.session_state.detected_bugs = []
+if "analysis_results" not in st.session_state: st.session_state.analysis_results = []
 
-# --- MAIN UI ---
+# --- MAIN INTERFACE ---
 st.title("🤖 Enterprise Python Logic & Syntax Debugger")
 
-user_input = st.text_area("Input Terminal:", height=350, value=st.session_state.main_code)
+# Link input area to state
+user_code = st.text_area("Input Terminal:", height=350, value=st.session_state.input_code, key="primary_editor")
 
 col1, col2 = st.columns([1, 5])
 
-# 🚀 DEEP ANALYSIS FEATURE (RESTORED)
+# 🚀 RESTORED FEATURE: ANALYZE & DEEP FIX
 if col1.button("🚀 Analyze & Deep Fix"):
-    if not user_input:
-        st.warning("Input terminal is empty.")
+    if not user_code:
+        st.warning("Please enter code to analyze.")
     else:
-        st.session_state.main_code = user_input
-        lines = user_input.split('\n')
-        corrected_lines = []
-        st.session_state.detected_bugs = []
+        st.session_state.input_code = user_code
+        lines = user_code.split('\n')
+        corrected_output = []
+        st.session_state.analysis_results = []
         
-        # VARIABLE MAPPING (For Typo Detection)
-        # Finds: var = x, def func(param), for i in...
-        defined_vars = set(re.findall(r'\b(\w+)\b\s*=', user_input))
-        defined_vars.update(re.findall(r'def\s+(\w+)', user_input))
-        args = re.findall(r'def\s+\w+\((.*?)\)', user_input)
-        for arg_set in args:
-            for a in arg_set.split(','):
+        # VARIABLE MAPPING (To detect NameErrors/Typos)
+        defined_vars = set(re.findall(r'\b(\w+)\b\s*=', user_code))
+        defined_vars.update(re.findall(r'def\s+(\w+)', user_code))
+        args = re.findall(r'def\s+\w+\((.*?)\)', user_code)
+        for group in args:
+            for a in group.split(','):
                 defined_vars.add(a.strip())
-        # Add common built-ins
         defined_vars.update(["print", "int", "input", "range", "len", "str", "float", "if", "elif", "else"])
 
         for i, line in enumerate(lines):
             indent = line[:len(line) - len(line.lstrip())]
             clean = line.strip()
             if not clean or clean.startswith("#"):
-                corrected_lines.append(line); continue
+                corrected_output.append(line); continue
             
-            f_line, f_errs = clean, []
+            f_line, current_errors = clean, []
 
-            # 1. SYNTAX: Missing Colons
+            # 1. Syntax: Colons
             if any(clean.startswith(x) for x in ["def ","if ","for ","while ","elif ","else"]) and not clean.endswith(":"):
-                f_errs.append("Missing colon (:)")
+                current_errors.append("Missing colon (:)")
                 f_line = f_line.rstrip() + ":"
 
-            # 2. SYNTAX: String/Quote Errors
+            # 2. Syntax: Missing Quotes in Print
             if "print(" in clean and not (re.search(r"['\"].*['\"]", clean) or "+" in clean or "," in clean):
-                f_errs.append("Missing string quotes")
+                current_errors.append("Missing string quotes")
                 inner = clean.split('(', 1)[1].rsplit(')', 1)[0]
                 f_line = f_line.replace(inner, f"'{inner}'")
 
-            # 3. LOGIC: Assignment instead of Equality
-            if (clean.startswith("if ") or clean.startswith("elif ")) and "=" in clean and "==" not in clean and "!=" not in clean and ">=" not in clean and "<=" not in clean:
-                f_errs.append("Logic: Using '=' instead of '=='")
+            # 3. Logic: Assignment vs Equality
+            if (clean.startswith("if ") or clean.startswith("elif ")) and "=" in clean and "==" not in clean and not any(op in clean for op in [">=", "<=", "!="]):
+                current_errors.append("Logic Error: Using '=' (assignment) instead of '==' (comparison)")
                 f_line = f_line.replace("=", "==")
 
-            # 4. NAMING: Deep Typo Detection
-            # Scans every word to see if it's a "close match" to a defined variable
+            # 4. Naming: Deep Typo Detection
             tokens = re.findall(r'\b\w+\b', clean)
             for token in tokens:
                 if token.isdigit() or token in defined_vars or len(token) < 3:
                     continue
-                # Fuzzy match for 1-character typos
                 for d in defined_vars:
                     if d and token != d and (token in d or d in token) and abs(len(token)-len(d)) <= 1:
-                        f_errs.append(f"Naming: Typo found ('{token}' -> '{d}')")
+                        current_errors.append(f"Naming Error: Possible typo detected ('{token}' -> '{d}')")
                         f_line = f_line.replace(token, d)
 
-            if f_errs:
-                st.session_state.detected_bugs.append({
-                    "line": i+1, 
-                    "msg": " & ".join(f_errs), 
+            if current_errors:
+                st.session_state.analysis_results.append({
+                    "line": i+1,
+                    "title": f"Bug Detected at Line {i+1}",
+                    "msg": " & ".join(current_errors),
                     "fix": f_line
                 })
-            corrected_lines.append(indent + f_line)
+            corrected_output.append(indent + f_line)
 
-        st.session_state.fixed_code = "\n".join(corrected_lines)
+        st.session_state.fixed_code = "\n".join(corrected_output)
         st.rerun()
 
 if col2.button("🗑️ Clear All"):
-    st.session_state.main_code = ""
+    st.session_state.input_code = ""
     st.session_state.fixed_code = ""
-    st.session_state.detected_bugs = []
+    st.session_state.analysis_results = []
     st.rerun()
 
-# --- RENDER RESTORED FEATURES ---
-
-# 1. Enterprise Analysis Cards
-for bug in st.session_state.detected_bugs:
+# --- RENDER ANALYSIS CARDS ---
+for bug in st.session_state.analysis_results:
     st.markdown(f"""
     <div class="error-card">
-        <div class="card-header">⚠️ Bug Detected at Line {bug['line']}</div>
-        <div class="explanation"><b>Explanation:</b> Python syntax and logic rules must be followed. This fix ensures the interpreter can correctly execute your instructions.</div>
+        <div class="card-header">⚠️ {bug['title']}</div>
+        <div class="explanation"><b>Explanation:</b> {bug['msg']}. Python syntax and logic rules must be followed for the interpreter to execute code. This error prevents code from running or causes incorrect results.</div>
         <div class="fix-box">💡 Suggested fix: {bug['fix']}</div>
     </div>
     """, unsafe_allow_html=True)
 
-# 2. Corrected Application Block
+# --- RENDER CORRECTED BLOCK ---
 if st.session_state.fixed_code:
     st.subheader("💻 Corrected Application Block")
     st.code(st.session_state.fixed_code, language="python")
