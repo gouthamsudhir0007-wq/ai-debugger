@@ -4,24 +4,24 @@ import sys
 from io import StringIO
 
 # 1. Page Configuration
-st.set_page_config(page_title="Python Enterprise Debugger", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Python AI Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - TRIPLE CHECKED: NO RED / HIDE HINTS / TEAL FOCUS
+# 2. CSS - FIXED SIDEBAR / TEAL FOCUS / HIDE HINTS
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    [data-testid="stSidebar"] { background-color: #000000 !important; }
     
-    /* HIDE THE "Press Ctrl+Enter" HINT */
-    .stTextArea div[data-baseweb="textarea"] + div { display: none !important; }
+    /* Ensure Sidebar Arrow is Visible and Teal */
+    [data-testid="stSidebarNav"] { background-color: #000000 !important; }
+    .st-emotion-cache-6qob1r { color: #00d4ff !important; } 
 
-    /* Terminal Styling - PURE TEAL FOCUS */
+    /* Terminal Styling */
+    .stTextArea div[data-baseweb="textarea"] + div { display: none !important; }
     .stTextArea>div>div>textarea {
         background-color: #111111 !important; 
         color: #FFFFFF !important; 
         border: 1px solid #333333 !important;
         border-radius: 10px;
-        font-family: 'Courier New', monospace;
     }
     .stTextArea>div>div>textarea:focus {
         border-color: #00d4ff !important;
@@ -36,127 +36,109 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 15px;
     }
-    .card-header { color: #FFA500; font-weight: bold; margin-bottom: 8px; font-size: 1.1em; }
-    
-    /* Green Fix Box */
+    .card-header { color: #FFA500; font-weight: bold; }
     .fix-box {
         background-color: #142E1F;
         border-left: 5px solid #2ECC71;
         padding: 12px;
         border-radius: 6px;
         color: #D1FFD6;
-        font-family: monospace;
     }
-    
-    /* Console Output Styling */
     .console-box {
         background-color: #000000;
         border: 1px solid #00d4ff;
         color: #00ff00;
         padding: 15px;
-        font-family: 'Courier New', monospace;
+        font-family: monospace;
         border-radius: 8px;
-        margin-top: 10px;
-        white-space: pre-wrap;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. State Management
-if "last_fixed_code" not in st.session_state:
-    st.session_state.last_fixed_code = ""
+# 3. Persistent State Management
+if "history" not in st.session_state: st.session_state.history = []
+if "last_fixed" not in st.session_state: st.session_state.last_fixed = ""
+if "editor_content" not in st.session_state: st.session_state.editor_content = ""
+
+# --- SIDEBAR HISTORY ---
+with st.sidebar:
+    st.markdown("<h2 style='color:#00d4ff;'>📂 Code History</h2>", unsafe_allow_html=True)
+    if st.button("🗑️ Clear All History"):
+        st.session_state.history = []
+        st.rerun()
+    st.markdown("---")
+    for i, entry in enumerate(reversed(st.session_state.history)):
+        if st.button(f"Sess {len(st.session_state.history)-i}: {entry[:15]}...", key=f"hist_{i}"):
+            st.session_state.editor_content = entry
+            st.rerun()
 
 # --- MAIN UI ---
 st.title("🤖 Python Enterprise Debugger & Runner")
-code_input = st.text_area("Input Terminal:", height=300, placeholder="Paste your Python code here...")
 
-# Action Buttons
+# Input Terminal with State Link
+code_input = st.text_area("Input Terminal:", height=300, value=st.session_state.editor_content, key="main_editor")
+
 col1, col2, col3 = st.columns([1, 1, 4])
 
-with col1:
-    analyze_btn = st.button("🚀 Analyze & Fix")
-with col2:
-    run_btn = st.button("▶️ Run Code")
-with col3:
-    if st.button("🗑️ Clear"):
-        st.rerun()
-
-# --- LOGIC ENGINE ---
-if analyze_btn:
+# 🚀 ANALYZE & FIX LOGIC
+if col1.button("🚀 Analyze & Fix"):
     if not code_input:
-        st.warning("Please enter code first.")
+        st.warning("Please enter code.")
     else:
-        with st.spinner("Analyzing Every Line..."):
-            time.sleep(0.5)
-            lines = code_input.split('\n')
-            full_corrected_list = []
-            analysis_cards = []
-
-            for i in range(len(lines)):
-                line = lines[i]
-                indent = line[:len(line) - len(line.lstrip())]
-                clean = line.strip()
-                ln = i + 1
-                
-                if not clean:
-                    full_corrected_list.append("")
-                    continue
-
-                errors = []
-                fixed = clean
-
-                # Check 1: Colons
-                if any(clean.startswith(x) for x in ["def ","if ","for ","while ","elif ","else"]) and not clean.endswith(":"):
-                    errors.append("Missing colon (:)")
-                    fixed = fixed.rstrip() + ":"
-                
-                # Check 2: Print Quotes
-                if "print(" in clean and not ("'" in clean or '"' in clean):
-                    errors.append("Missing string quotes")
-                    try:
-                        content = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                        fixed = f"print('{content}')"
-                    except: pass
-
-                if errors:
-                    analysis_cards.append({"line": ln, "msg": " & ".join(errors), "fix": fixed})
-                
-                full_corrected_list.append(indent + fixed)
-
-            # Display Enterprise Cards
-            if analysis_cards:
-                st.subheader("🔍 Detailed Analysis")
-                for card in analysis_cards:
-                    st.markdown(f"""
-                    <div class="error-card">
-                        <div class="card-header">Line {card['line']}: {card['msg']}</div>
-                        <div class="fix-box">💡 Suggested fix: {card['fix']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            # Display Full Block
-            st.subheader("💻 Full Corrected Code")
-            final_code = "\n".join(full_corrected_list)
-            st.code(final_code, language="python")
-            st.session_state.last_fixed_code = final_code
-            st.success("Analysis complete. You can now 'Run' the code.")
-
-if run_btn:
-    if not st.session_state.last_fixed_code:
-        st.error("Please click 'Analyze & Fix' before running.")
-    else:
-        st.subheader("🖥️ Console Output")
-        # Capturing stdout
-        old_stdout = sys.stdout
-        redirected_output = sys.stdout = StringIO()
+        st.session_state.editor_content = code_input # Save state
+        lines = code_input.split('\n')
+        fixed_lines = []
+        cards = []
         
+        for i, line in enumerate(lines):
+            indent = line[:len(line) - len(line.lstrip())]
+            clean = line.strip()
+            if not clean:
+                fixed_lines.append("")
+                continue
+            
+            errs, fix = [], clean
+            if any(clean.startswith(x) for x in ["def ","if ","for ","while "]) and not clean.endswith(":"):
+                errs.append("Missing colon (:)"); fix += ":"
+            if "print(" in clean and not ('"' in clean or "'" in clean):
+                errs.append("Missing quotes")
+                content = clean.split('(', 1)[1].rsplit(')', 1)[0]
+                fix = f"print('{content}')"
+            
+            if errs: cards.append({"ln": i+1, "m": " & ".join(errs), "f": fix})
+            fixed_lines.append(indent + fix)
+        
+        st.session_state.last_fixed = "\n".join(fixed_lines)
+        st.session_state.history.append(code_input)
+        
+        for c in cards:
+            st.markdown(f'<div class="error-card"><div class="card-header">Line {c["ln"]}: {c["m"]}</div><div class="fix-box">💡 {c["f"]}</div></div>', unsafe_allow_html=True)
+        st.code(st.session_state.last_fixed, language="python")
+
+# ▶️ RUN WITH RUNTIME INPUT
+if col2.button("▶️ Run Code"):
+    if st.session_state.last_fixed:
+        # Check if code requires input()
+        if "input(" in st.session_state.last_fixed:
+            user_val = st.text_input("Console Input Required:", placeholder="Enter value here and press Enter...")
+            if not user_val: st.info("Waiting for input..."); st.stop()
+            # Inject input value for execution
+            exec_code = f"def input(prompt=''): return '{user_val}'\n" + st.session_state.last_fixed
+        else:
+            exec_code = st.session_state.last_fixed
+
+        old_stdout = sys.stdout
+        sys.stdout = output_capture = StringIO()
         try:
-            # Running the fixed code
-            exec(st.session_state.last_fixed_code)
+            exec(exec_code)
             sys.stdout = old_stdout
-            output = redirected_output.getvalue()
-            result = output if output else "Process finished with no output."
-            st.markdown(f'<div class="console-box">{result}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="console-box">{output_capture.getvalue() or "Finished."}</div>', unsafe_allow_html=True)
         except Exception as e:
             sys.stdout = old_stdout
-            st.error(f"Logic/Runtime Error: {e}")
+            st.error(f"Error: {e}")
+
+# 🗑️ CLEAR EVERYTHING
+if col3.button("🗑️ Clear All"):
+    st.session_state.editor_content = ""
+    st.session_state.last_fixed = ""
+    st.rerun()
