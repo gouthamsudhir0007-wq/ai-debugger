@@ -5,7 +5,7 @@ import re
 from io import StringIO
 
 # 1. Page Configuration - Sidebar Always Open
-st.set_page_config(page_title="Python AI Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_config = st.set_page_config(page_title="Python AI Pro", layout="wide", initial_sidebar_state="expanded")
 
 # 2. CSS - ENTERPRISE STYLING & SIDEBAR LOCK
 st.markdown("""
@@ -29,7 +29,7 @@ st.markdown("""
         box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2) !important;
     }
 
-    /* Enterprise Result Cards (Matching Image 1) */
+    /* Enterprise Result Cards */
     .error-card {
         background-color: #161b22;
         border: 1px solid #30363d;
@@ -37,8 +37,8 @@ st.markdown("""
         padding: 24px;
         margin-bottom: 20px;
     }
-    .card-header { color: #ffa657; font-weight: 800; font-size: 1.2em; margin-bottom: 10px; display: flex; align-items: center; }
-    .explanation { color: #8b949e; font-size: 0.95em; margin-bottom: 15px; line-height: 1.5; }
+    .card-header { color: #ffa657; font-weight: 800; font-size: 1.2em; margin-bottom: 10px; }
+    .explanation { color: #8b949e; font-size: 0.95em; margin-bottom: 15px; }
     
     .fix-box {
         background-color: #0d1117;
@@ -64,108 +64,109 @@ st.markdown("""
 
 # 3. Enhanced State Management
 if "history" not in st.session_state: st.session_state.history = []
-if "editor_val" not in st.session_state: st.session_state.editor_val = ""
+if "main_code" not in st.session_state: st.session_state.main_code = ""
 if "fixed_code" not in st.session_state: st.session_state.fixed_code = ""
+if "analysis_log" not in st.session_state: st.session_state.analysis_log = []
 
-# --- SIDEBAR: PERMANENTLY VISIBLE ---
+# --- SIDEBAR: HISTORY ---
 with st.sidebar:
-    st.markdown("<h1 style='color:#00d4ff;'>📦 Version History</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='color:#00d4ff;'>📦 Versions</h1>", unsafe_allow_html=True)
     if st.button("🗑️ Wipe All History"):
         st.session_state.history = []
         st.rerun()
     st.markdown("---")
     for i, code in enumerate(reversed(st.session_state.history)):
-        if st.button(f"📄 Version {len(st.session_state.history)-i}", key=f"hist_{i}"):
-            st.session_state.editor_val = code
+        if st.button(f"📄 Code Entry {len(st.session_state.history)-i}", key=f"h_{i}"):
+            st.session_state.main_code = code
             st.rerun()
 
-# --- MAIN INTERFACE ---
+# --- MAIN UI ---
 st.title("🤖 Enterprise Python Logic & Syntax Debugger")
 
-# Input with Dynamic State
-code_input = st.text_area("Input Terminal:", height=350, value=st.session_state.editor_val, key="python_editor")
+# Fixed: The editor is now directly linked to 'main_code' session state
+user_input = st.text_area("Input Terminal:", height=350, value=st.session_state.main_code, key="primary_editor")
 
 c1, c2, c3 = st.columns([1, 1, 1])
 
-# 🚀 DEEP ANALYSIS ENGINE
+# 🚀 ANALYZE & FIX
 if c1.button("🚀 Analyze & Deep Fix"):
-    if not code_input:
-        st.warning("Please provide code to analyze.")
+    if not user_input:
+        st.warning("Input terminal is empty.")
     else:
-        st.session_state.editor_val = code_input
-        lines = code_input.split('\n')
+        st.session_state.main_code = user_input # Sync typing area
+        lines = user_input.split('\n')
         final_lines = []
-        found_bugs = []
+        st.session_state.analysis_log = []
         
         for i, line in enumerate(lines):
             indent = line[:len(line) - len(line.lstrip())]
             clean = line.strip()
-            ln = i + 1
             if not clean:
                 final_lines.append(""); continue
             
             temp_fix = clean
-            line_errs = []
+            errs = []
 
-            # A. Block Keywords & Colons
+            # 1. Colon Check
             if any(clean.startswith(x) for x in ["def ","if ","for ","while ","elif ","else"]) and not clean.endswith(":"):
-                line_errs.append("Missing colon (:) at end of block statement.")
+                errs.append("Missing colon (:)")
                 temp_fix = temp_fix.rstrip() + ":"
 
-            # B. Advanced Print & String Check
-            if "print(" in clean:
-                if not (clean.count('"') >= 2 or clean.count("'") >= 2 or "+" in clean or "," in clean):
-                    line_errs.append("Missing string delimiters (quotes) in print function.")
-                    inner = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                    temp_fix = f"print('{inner}')"
-                if clean.count('(') != clean.count(')'):
-                    line_errs.append("Parentheses mismatch (unclosed bracket).")
-                    temp_fix = temp_fix + ")"
+            # 2. Print Quote Check
+            if "print(" in clean and not (re.search(r"['\"].*['\"]", clean) or "+" in clean or "," in clean):
+                errs.append("Missing string quotes")
+                inner = clean.split('(', 1)[1].rsplit(')', 1)[0]
+                temp_fix = f"print('{inner}')"
 
-            # C. Logic Check: Assignment vs Equality
-            if clean.startswith("if ") and "=" in clean and "==" not in clean and "!=" not in clean:
-                line_errs.append("Logic Error: Using '=' (assignment) instead of '==' (comparison).")
+            # 3. Logic: Assignment vs Equality
+            if clean.startswith("if ") and "=" in clean and "==" not in clean:
+                errs.append("Logic Error: '=' used instead of '=='")
                 temp_fix = temp_fix.replace("=", "==")
 
-            if line_errs:
-                found_bugs.append({"line": ln, "msg": " | ".join(line_errs), "fix": temp_fix})
+            if errs:
+                st.session_state.analysis_log.append({"ln": i+1, "msg": " & ".join(errs), "fix": temp_fix})
             final_lines.append(indent + temp_fix)
 
         st.session_state.fixed_code = "\n".join(final_lines)
-        if code_input not in st.session_state.history:
-            st.session_state.history.append(code_input)
+        if user_input not in st.session_state.history:
+            st.session_state.history.append(user_input)
+        st.rerun()
 
-        # Display Enterprise Cards
-        for bug in found_bugs:
-            st.markdown(f"""
-            <div class="error-card">
-                <div class="card-header">⚠️ Bug Detected at Line {bug['line']}</div>
-                <div class="explanation"><b>Explanation:</b> Python syntax and logic rules must be followed for the interpreter to execute code. This error prevents code from running or causes incorrect results.</div>
-                <div class="fix-box">💡 Suggested fix: {bug['fix']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+# Display Results if they exist
+for bug in st.session_state.analysis_log:
+    st.markdown(f"""
+    <div class="error-card">
+        <div class="card-header">⚠️ Bug Detected at Line {bug['ln']}</div>
+        <div class="explanation">Explanation: Python syntax requires specific formatting to execute. This fixed version ensures the interpreter understands your logic.</div>
+        <div class="fix-box">💡 Suggested fix: {bug['fix']}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        st.subheader("💻 Corrected Application Block")
-        st.code(st.session_state.fixed_code, language="python")
+if st.session_state.fixed_code:
+    st.subheader("💻 Corrected Application Block")
+    st.code(st.session_state.fixed_code, language="python")
 
-# ▶️ SMART RUNNER
+# ▶️ RUN PROGRAM (FIXED TO RUN THE CORRECTED CODE)
 if c2.button("▶️ Run Program"):
-    if st.session_state.fixed_code:
+    if not st.session_state.fixed_code:
+        st.error("Please 'Analyze & Fix' the code before running.")
+    else:
         st.subheader("🖥️ Enterprise Console")
         old_stdout = sys.stdout
         sys.stdout = capture = StringIO()
         try:
-            # Handle input() mock
-            exec_globals = {"input": lambda p="": "DemoValue"}
-            exec(st.session_state.fixed_code, exec_globals)
+            # Mock input to prevent freezing
+            exec_env = {"input": lambda p="": "Admin"}
+            exec(st.session_state.fixed_code, exec_env)
             sys.stdout = old_stdout
-            st.markdown(f'<div class="console-box">{capture.getvalue() or "Process finished (Exit Code 0)"}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="console-box">{capture.getvalue() or "Finished (No Output)."}</div>', unsafe_allow_html=True)
         except Exception as e:
             sys.stdout = old_stdout
             st.error(f"Execution Error: {e}")
 
-# 🗑️ RESET MASTER
+# 🗑️ CLEAR ALL (TOTAL RESET)
 if c3.button("🗑️ Clear All"):
-    st.session_state.editor_val = ""
+    st.session_state.main_code = ""
     st.session_state.fixed_code = ""
+    st.session_state.analysis_log = []
     st.rerun()
