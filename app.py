@@ -1,10 +1,12 @@
 import streamlit as st
 import time
+import sys
+from io import StringIO
 
 # 1. Page Configuration
-st.set_page_config(page_title="Python AI Debugger Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Python Enterprise Debugger", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - PURE DARK / TEAL FOCUS / HIDE HINTS / ENTERPRISE CARDS
+# 2. CSS - TRIPLE CHECKED: NO RED / HIDE HINTS / TEAL FOCUS
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
@@ -13,7 +15,7 @@ st.markdown("""
     /* HIDE THE "Press Ctrl+Enter" HINT */
     .stTextArea div[data-baseweb="textarea"] + div { display: none !important; }
 
-    /* Terminal Styling - NO RED */
+    /* Terminal Styling - PURE TEAL FOCUS */
     .stTextArea>div>div>textarea {
         background-color: #111111 !important; 
         color: #FFFFFF !important; 
@@ -26,7 +28,7 @@ st.markdown("""
         box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
-    /* Enterprise Result Cards from your Image */
+    /* Enterprise Result Cards */
     .error-card {
         background-color: #1E1E1E;
         border: 1px solid #444444;
@@ -35,9 +37,8 @@ st.markdown("""
         margin-bottom: 15px;
     }
     .card-header { color: #FFA500; font-weight: bold; margin-bottom: 8px; font-size: 1.1em; }
-    .explanation { color: #BBBBBB; font-size: 0.92em; margin-bottom: 12px; }
     
-    /* Green Suggested Fix Box from Image */
+    /* Green Fix Box */
     .fix-box {
         background-color: #142E1F;
         border-left: 5px solid #2ECC71;
@@ -46,109 +47,116 @@ st.markdown("""
         color: #D1FFD6;
         font-family: monospace;
     }
-
-    /* Section Header Styling */
-    .section-title {
-        color: #00d4ff;
-        font-size: 1.5em;
-        font-weight: bold;
-        margin-top: 25px;
-        margin-bottom: 15px;
-        border-bottom: 1px solid #333;
-        padding-bottom: 5px;
+    
+    /* Console Output Styling */
+    .console-box {
+        background-color: #000000;
+        border: 1px solid #00d4ff;
+        color: #00ff00;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        border-radius: 8px;
+        margin-top: 10px;
+        white-space: pre-wrap;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. Sidebar History
-if "history" not in st.session_state: st.session_state.history = []
-with st.sidebar:
-    st.title("📂 Python History")
-    for item in reversed(st.session_state.history):
-        st.code(item, language="python")
+# 3. State Management
+if "last_fixed_code" not in st.session_state:
+    st.session_state.last_fixed_code = ""
 
 # --- MAIN UI ---
-st.title("🤖 Python Enterprise Debugger")
-code_input = st.text_area("Input Terminal:", height=300, placeholder="def my_function()\n  print(hello)")
+st.title("🤖 Python Enterprise Debugger & Runner")
+code_input = st.text_area("Input Terminal:", height=300, placeholder="Paste your Python code here...")
 
-if st.button("🚀 Analyze & Fix Python Code"):
+# Action Buttons
+col1, col2, col3 = st.columns([1, 1, 4])
+
+with col1:
+    analyze_btn = st.button("🚀 Analyze & Fix")
+with col2:
+    run_btn = st.button("▶️ Run Code")
+with col3:
+    if st.button("🗑️ Clear"):
+        st.rerun()
+
+# --- LOGIC ENGINE ---
+if analyze_btn:
     if not code_input:
-        st.warning("Please enter some Python code.")
+        st.warning("Please enter code first.")
     else:
-        with st.spinner("Analyzing code structure..."):
-            time.sleep(0.8)
+        with st.spinner("Analyzing Every Line..."):
+            time.sleep(0.5)
             lines = code_input.split('\n')
-            
-            full_corrected_lines = []
-            analysis_results = []
-            
-            # --- LINE-BY-LINE ANALYSIS ENGINE ---
+            full_corrected_list = []
+            analysis_cards = []
+
             for i in range(len(lines)):
                 line = lines[i]
-                original_indent = line[:len(line) - len(line.lstrip())]
+                indent = line[:len(line) - len(line.lstrip())]
                 clean = line.strip()
                 ln = i + 1
                 
                 if not clean:
-                    full_corrected_lines.append("")
+                    full_corrected_list.append("")
                     continue
 
-                line_errors = []
-                fixed_content = clean
+                errors = []
+                fixed = clean
 
-                # Check 1: Colons for blocks
-                if any(clean.startswith(x) for x in ["def ", "if ", "for ", "while ", "elif ", "else", "try", "except"]) and not clean.endswith(":"):
-                    line_errors.append(f"Missing colon (:) after '{clean.split()[0]}'")
-                    fixed_content = fixed_content.rstrip() + ":"
-
-                # Check 2: Missing Quotes in print
+                # Check 1: Colons
+                if any(clean.startswith(x) for x in ["def ","if ","for ","while ","elif ","else"]) and not clean.endswith(":"):
+                    errors.append("Missing colon (:)")
+                    fixed = fixed.rstrip() + ":"
+                
+                # Check 2: Print Quotes
                 if "print(" in clean and not ("'" in clean or '"' in clean):
-                    line_errors.append("Missing string delimiters (quotes)")
+                    errors.append("Missing string quotes")
                     try:
                         content = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                        fixed_content = f"print('{content}')"
+                        fixed = f"print('{content}')"
                     except: pass
-                
-                # Check 3: Unclosed Parenthesis
-                if fixed_content.count('(') > fixed_content.count(')'):
-                    line_errors.append("Unclosed parenthesis")
-                    fixed_content += ")"
 
-                # Store result for the card view
-                if line_errors:
-                    analysis_results.append({
-                        "line": ln,
-                        "errors": line_errors,
-                        "fix": fixed_content
-                    })
+                if errors:
+                    analysis_cards.append({"line": ln, "msg": " & ".join(errors), "fix": fixed})
                 
-                # Add to the full block with original indent
-                full_corrected_lines.append(original_indent + fixed_content)
+                full_corrected_list.append(indent + fixed)
 
-            # --- DISPLAY OUTPUTS ---
-            
-            # 1. INDIVIDUAL CARDS (As requested in pic)
-            if analysis_results:
-                st.markdown('<div class="section-title">🔍 Detailed Analysis</div>', unsafe_allow_html=True)
-                for res in analysis_results:
-                    err_text = " & ".join(res['errors'])
+            # Display Enterprise Cards
+            if analysis_cards:
+                st.subheader("🔍 Detailed Analysis")
+                for card in analysis_cards:
                     st.markdown(f"""
                     <div class="error-card">
-                        <div class="card-header">⚠️ {err_text} (Line {res['line']})</div>
-                        <div class="explanation"><b>Explanation:</b> Python syntax rules require proper punctuation and string formatting for code to execute.</div>
-                        <div class="fix-box">💡 Suggested fix: {res['fix']}</div>
+                        <div class="card-header">Line {card['line']}: {card['msg']}</div>
+                        <div class="fix-box">💡 Suggested fix: {card['fix']}</div>
                     </div>
                     """, unsafe_allow_html=True)
             
-            # 2. FULL BLOCK CORRECTED VERSION
-            st.markdown('<div class="section-title">💻 Full Corrected Code</div>', unsafe_allow_html=True)
-            final_code_block = "\n".join(full_corrected_lines)
-            st.code(final_code_block, language="python")
-            
-            # Copy-paste helpful hint (Streamlit's st.code has a built-in copy button at top right)
-            st.info("💡 You can copy the full block above using the button in the top-right of the code box.")
-            
-            st.session_state.history.append(final_code_block)
+            # Display Full Block
+            st.subheader("💻 Full Corrected Code")
+            final_code = "\n".join(full_corrected_list)
+            st.code(final_code, language="python")
+            st.session_state.last_fixed_code = final_code
+            st.success("Analysis complete. You can now 'Run' the code.")
 
-if st.button("🗑️ Clear Input"):
-    st.rerun()
+if run_btn:
+    if not st.session_state.last_fixed_code:
+        st.error("Please click 'Analyze & Fix' before running.")
+    else:
+        st.subheader("🖥️ Console Output")
+        # Capturing stdout
+        old_stdout = sys.stdout
+        redirected_output = sys.stdout = StringIO()
+        
+        try:
+            # Running the fixed code
+            exec(st.session_state.last_fixed_code)
+            sys.stdout = old_stdout
+            output = redirected_output.getvalue()
+            result = output if output else "Process finished with no output."
+            st.markdown(f'<div class="console-box">{result}</div>', unsafe_allow_html=True)
+        except Exception as e:
+            sys.stdout = old_stdout
+            st.error(f"Logic/Runtime Error: {e}")
