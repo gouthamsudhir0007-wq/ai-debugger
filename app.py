@@ -1,153 +1,154 @@
 import streamlit as st
-import re
+import time
 
 # 1. Page Configuration
-st.set_page_config(page_title="Enterprise Python Logic Debugger", layout="wide")
+st.set_page_config(page_title="Python AI Debugger Pro", layout="wide", initial_sidebar_state="expanded")
 
-# 2. CSS - ENTERPRISE STYLING (Restoring the Analysis Card UI)
+# 2. CSS - PURE DARK / TEAL FOCUS / HIDE HINTS / ENTERPRISE CARDS
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
+    [data-testid="stSidebar"] { background-color: #000000 !important; }
     
-    /* Input Terminal Styling */
-    .stTextArea div[data-baseweb="textarea"] { border: 1px solid #333333 !important; }
-    .stTextArea div[data-baseweb="textarea"]:focus-within { border: 1px solid #00d4ff !important; }
-    .stTextArea textarea { 
-        background-color: #0b0b0b !important; 
-        color: #00ffcc !important; 
-        font-family: 'Fira Code', monospace; 
+    /* HIDE THE "Press Ctrl+Enter" HINT */
+    .stTextArea div[data-baseweb="textarea"] + div { display: none !important; }
+
+    /* Terminal Styling - NO RED */
+    .stTextArea>div>div>textarea {
+        background-color: #111111 !important; 
+        color: #FFFFFF !important; 
+        border: 1px solid #333333 !important;
+        border-radius: 10px;
+        font-family: 'Courier New', monospace;
+    }
+    .stTextArea>div>div>textarea:focus {
+        border-color: #00d4ff !important;
+        box-shadow: 0 0 0 1px #00d4ff !important;
     }
 
-    /* RESTORED: Enterprise Analysis Cards (Image 1 Style) */
+    /* Enterprise Result Cards from your Image */
     .error-card {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 10px;
-        padding: 24px;
-        margin-bottom: 20px;
+        background-color: #1E1E1E;
+        border: 1px solid #444444;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 15px;
     }
-    .card-header { 
-        color: #ffa657; 
-        font-weight: 800; 
-        font-size: 1.2em; 
-        margin-bottom: 10px; 
-        display: flex; 
-        align-items: center; 
-    }
-    .explanation { 
-        color: #8b949e; 
-        font-size: 0.95em; 
-        margin-bottom: 15px; 
-        line-height: 1.5; 
-    }
+    .card-header { color: #FFA500; font-weight: bold; margin-bottom: 8px; font-size: 1.1em; }
+    .explanation { color: #BBBBBB; font-size: 0.92em; margin-bottom: 12px; }
     
+    /* Green Suggested Fix Box from Image */
     .fix-box {
-        background-color: #0d1117;
-        border: 1px solid #238636;
-        border-left: 6px solid #238636;
-        padding: 15px;
-        border-radius: 8px;
-        color: #3fb950;
-        font-family: 'Fira Code', monospace;
+        background-color: #142E1F;
+        border-left: 5px solid #2ECC71;
+        padding: 12px;
+        border-radius: 6px;
+        color: #D1FFD6;
+        font-family: monospace;
+    }
+
+    /* Section Header Styling */
+    .section-title {
+        color: #00d4ff;
+        font-size: 1.5em;
+        font-weight: bold;
+        margin-top: 25px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. State Management
-if "input_code" not in st.session_state: st.session_state.input_code = ""
-if "fixed_code" not in st.session_state: st.session_state.fixed_code = ""
-if "analysis_results" not in st.session_state: st.session_state.analysis_results = []
+# 3. Sidebar History
+if "history" not in st.session_state: st.session_state.history = []
+with st.sidebar:
+    st.title("📂 Python History")
+    for item in reversed(st.session_state.history):
+        st.code(item, language="python")
 
-# --- MAIN INTERFACE ---
-st.title("🤖 Enterprise Python Logic & Syntax Debugger")
+# --- MAIN UI ---
+st.title("🤖 Python Enterprise Debugger")
+code_input = st.text_area("Input Terminal:", height=300, placeholder="def my_function()\n  print(hello)")
 
-# Link input area to state
-user_code = st.text_area("Input Terminal:", height=350, value=st.session_state.input_code, key="primary_editor")
-
-col1, col2 = st.columns([1, 5])
-
-# 🚀 RESTORED FEATURE: ANALYZE & DEEP FIX
-if col1.button("🚀 Analyze & Deep Fix"):
-    if not user_code:
-        st.warning("Please enter code to analyze.")
+if st.button("🚀 Analyze & Fix Python Code"):
+    if not code_input:
+        st.warning("Please enter some Python code.")
     else:
-        st.session_state.input_code = user_code
-        lines = user_code.split('\n')
-        corrected_output = []
-        st.session_state.analysis_results = []
-        
-        # VARIABLE MAPPING (To detect NameErrors/Typos)
-        defined_vars = set(re.findall(r'\b(\w+)\b\s*=', user_code))
-        defined_vars.update(re.findall(r'def\s+(\w+)', user_code))
-        args = re.findall(r'def\s+\w+\((.*?)\)', user_code)
-        for group in args:
-            for a in group.split(','):
-                defined_vars.add(a.strip())
-        defined_vars.update(["print", "int", "input", "range", "len", "str", "float", "if", "elif", "else"])
-
-        for i, line in enumerate(lines):
-            indent = line[:len(line) - len(line.lstrip())]
-            clean = line.strip()
-            if not clean or clean.startswith("#"):
-                corrected_output.append(line); continue
+        with st.spinner("Analyzing code structure..."):
+            time.sleep(0.8)
+            lines = code_input.split('\n')
             
-            f_line, current_errors = clean, []
-
-            # 1. Syntax: Colons
-            if any(clean.startswith(x) for x in ["def ","if ","for ","while ","elif ","else"]) and not clean.endswith(":"):
-                current_errors.append("Missing colon (:)")
-                f_line = f_line.rstrip() + ":"
-
-            # 2. Syntax: Missing Quotes in Print
-            if "print(" in clean and not (re.search(r"['\"].*['\"]", clean) or "+" in clean or "," in clean):
-                current_errors.append("Missing string quotes")
-                inner = clean.split('(', 1)[1].rsplit(')', 1)[0]
-                f_line = f_line.replace(inner, f"'{inner}'")
-
-            # 3. Logic: Assignment vs Equality
-            if (clean.startswith("if ") or clean.startswith("elif ")) and "=" in clean and "==" not in clean and not any(op in clean for op in [">=", "<=", "!="]):
-                current_errors.append("Logic Error: Using '=' (assignment) instead of '==' (comparison)")
-                f_line = f_line.replace("=", "==")
-
-            # 4. Naming: Deep Typo Detection
-            tokens = re.findall(r'\b\w+\b', clean)
-            for token in tokens:
-                if token.isdigit() or token in defined_vars or len(token) < 3:
+            full_corrected_lines = []
+            analysis_results = []
+            
+            # --- LINE-BY-LINE ANALYSIS ENGINE ---
+            for i in range(len(lines)):
+                line = lines[i]
+                original_indent = line[:len(line) - len(line.lstrip())]
+                clean = line.strip()
+                ln = i + 1
+                
+                if not clean:
+                    full_corrected_lines.append("")
                     continue
-                for d in defined_vars:
-                    if d and token != d and (token in d or d in token) and abs(len(token)-len(d)) <= 1:
-                        current_errors.append(f"Naming Error: Possible typo detected ('{token}' -> '{d}')")
-                        f_line = f_line.replace(token, d)
 
-            if current_errors:
-                st.session_state.analysis_results.append({
-                    "line": i+1,
-                    "title": f"Bug Detected at Line {i+1}",
-                    "msg": " & ".join(current_errors),
-                    "fix": f_line
-                })
-            corrected_output.append(indent + f_line)
+                line_errors = []
+                fixed_content = clean
 
-        st.session_state.fixed_code = "\n".join(corrected_output)
-        st.rerun()
+                # Check 1: Colons for blocks
+                if any(clean.startswith(x) for x in ["def ", "if ", "for ", "while ", "elif ", "else", "try", "except"]) and not clean.endswith(":"):
+                    line_errors.append(f"Missing colon (:) after '{clean.split()[0]}'")
+                    fixed_content = fixed_content.rstrip() + ":"
 
-if col2.button("🗑️ Clear All"):
-    st.session_state.input_code = ""
-    st.session_state.fixed_code = ""
-    st.session_state.analysis_results = []
+                # Check 2: Missing Quotes in print
+                if "print(" in clean and not ("'" in clean or '"' in clean):
+                    line_errors.append("Missing string delimiters (quotes)")
+                    try:
+                        content = clean.split('(', 1)[1].rsplit(')', 1)[0]
+                        fixed_content = f"print('{content}')"
+                    except: pass
+                
+                # Check 3: Unclosed Parenthesis
+                if fixed_content.count('(') > fixed_content.count(')'):
+                    line_errors.append("Unclosed parenthesis")
+                    fixed_content += ")"
+
+                # Store result for the card view
+                if line_errors:
+                    analysis_results.append({
+                        "line": ln,
+                        "errors": line_errors,
+                        "fix": fixed_content
+                    })
+                
+                # Add to the full block with original indent
+                full_corrected_lines.append(original_indent + fixed_content)
+
+            # --- DISPLAY OUTPUTS ---
+            
+            # 1. INDIVIDUAL CARDS (As requested in pic)
+            if analysis_results:
+                st.markdown('<div class="section-title">🔍 Detailed Analysis</div>', unsafe_allow_html=True)
+                for res in analysis_results:
+                    err_text = " & ".join(res['errors'])
+                    st.markdown(f"""
+                    <div class="error-card">
+                        <div class="card-header">⚠️ {err_text} (Line {res['line']})</div>
+                        <div class="explanation"><b>Explanation:</b> Python syntax rules require proper punctuation and string formatting for code to execute.</div>
+                        <div class="fix-box">💡 Suggested fix: {res['fix']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # 2. FULL BLOCK CORRECTED VERSION
+            st.markdown('<div class="section-title">💻 Full Corrected Code</div>', unsafe_allow_html=True)
+            final_code_block = "\n".join(full_corrected_lines)
+            st.code(final_code_block, language="python")
+            
+            # Copy-paste helpful hint (Streamlit's st.code has a built-in copy button at top right)
+            st.info("💡 You can copy the full block above using the button in the top-right of the code box.")
+            
+            st.session_state.history.append(final_code_block)
+
+if st.button("🗑️ Clear Input"):
     st.rerun()
-
-# --- RENDER ANALYSIS CARDS ---
-for bug in st.session_state.analysis_results:
-    st.markdown(f"""
-    <div class="error-card">
-        <div class="card-header">⚠️ {bug['title']}</div>
-        <div class="explanation"><b>Explanation:</b> {bug['msg']}. Python syntax and logic rules must be followed for the interpreter to execute code. This error prevents code from running or causes incorrect results.</div>
-        <div class="fix-box">💡 Suggested fix: {bug['fix']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- RENDER CORRECTED BLOCK ---
-if st.session_state.fixed_code:
-    st.subheader("💻 Corrected Application Block")
-    st.code(st.session_state.fixed_code, language="python")
